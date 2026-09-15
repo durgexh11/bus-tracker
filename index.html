@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BusPulse — Smart Bus Tracking</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#05060d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BusPulse">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --bg: #05060d;
+            --border: rgba(255, 255, 255, 0.09);
+            --text: #f6f7fd;
+            --muted: #949bb8;
+            --primary: #8b7cff;
+            --primary-dark: #5b3df0;
+            --teal: #14b8a6;
+            --green: #34d399;
+            --yellow: #fbbf24;
+            --red: #fb7185;
+            --radius: 22px;
+            --grad-primary: linear-gradient(100deg, #5b3df0, #8b7cff 55%, #22d3ee);
+            --grad-brand: linear-gradient(135deg, #5b3df0, #c084fc);
+        }
+
+        html, body {
+            width: 100%;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 15% 8%, rgba(139, 124, 255, 0.10), transparent 28%),
+                radial-gradient(circle at 92% 18%, rgba(34, 211, 238, 0.05), transparent 26%),
+                radial-gradient(circle at 85% 85%, rgba(20, 184, 166, 0.09), transparent 32%),
+                var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 12px 0 0 0;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 430px;
+            min-height: 100vh;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            padding: 0 14px 90px 14px;
+            position: relative;
+        }
+
+        .bg-glow {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            filter: blur(100px);
+            pointer-events: none;
+            opacity: 0.12;
+            z-index: 0;
+        }
+        .glow-one { background: #8b7cff; top: -150px; left: 20px; }
+        .glow-two { background: #14b8a6; right: -150px; bottom: -100px; }
+
+        /* Topbar */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0 16px 0;
+            position: relative;
+            z-index: 10;
+        }
+        .topbar-left .eyebrow {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+        .topbar-left h2 {
+            font-size: 22px;
+            letter-spacing: -0.8px;
+            font-weight: 700;
+        }
+        h2, h3, .modal h2, .tab-page-header h2 {
+            font-family: 'Sora', 'Inter', -apple-system, sans-serif;
+        }
+        .header-actions { display: flex; align-items: center; gap: 10px; }
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--green);
+            font-size: 9px;
+            font-weight: 700;
+            padding: 6px 10px;
+            border: 1px solid rgba(52, 211, 153, 0.13);
+            background: rgba(52, 211, 153, 0.045);
+            border-radius: 20px;
+        }
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.08), 0 0 15px rgba(52, 211, 153, 0.7);
+            animation: pulse 1.7s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
+        .icon-btn {
+            position: relative;
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.035);
+            color: white;
+            cursor: pointer;
+            font-size: 15px;
+            display: grid;
+            place-items: center;
+        }
+        .notification-badge {
+            position: absolute;
+            right: -3px;
+            top: -4px;
+            min-width: 16px;
+            height: 16px;
+            padding: 0 4px;
+            border-radius: 10px;
+            background: var(--red);
+            color: white;
+            font-size: 8px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+        .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, #5b3df0, #c084fc);
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        /* Notification panel */
+        .notification-panel {
+            position: absolute;
+            right: 14px;
+            top: 70px;
+            width: calc(100% - 28px);
+            max-width: 340px;
+            background: rgba(14, 19, 31, 0.97);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 16px;
+            z-index: 200;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+        .notification-panel.show { display: block; animation: panelIn 0.2s ease; }
+        @keyframes panelIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .panel-header strong { display: block; font-size: 13px; }
+        .panel-header span { color: var(--muted); font-size: 9px; }
+        .panel-header button {
+            border: 0;
+            background: transparent;
+            color: var(--primary);
+            font-size: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .notification-item {
+            padding: 12px 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .notification-item strong { display: block; font-size: 11px; }
+        .notification-item span {
+            display: block;
+            color: var(--muted);
+            font-size: 9px;
+            margin-top: 4px;
+        }
+        .empty-notification {
+            color: var(--muted);
+            font-size: 10px;
+            text-align: center;
+            padding: 22px 5px;
+        }
+
+        .card {
+            background: linear-gradient(145deg, rgba(22, 27, 44, 0.85), rgba(10, 13, 24, 0.8));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(139, 124, 255, 0.035), inset 0 1px rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+            position: relative;
+            z-index: 5;
+        }
+
+        .user-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            z-index: 10;
+            position: relative;
+        }
+        .user-type-btn {
+            flex: 1;
+            padding: 14px 8px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.035);
+            color: var(--muted);
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.25s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            text-align: center;
+        }
+        .user-type-btn i { font-size: 19px; margin-bottom: 2px; }
+        .user-type-btn.active {
+            background: rgba(139, 124, 255, 0.12);
+            border-color: rgba(139, 124, 255, 0.3);
+            color: white;
+            box-shadow: 0 0 20px rgba(139, 124, 255, 0.08);
+        }
+        .user-type-btn .sub {
+            font-size: 7px;
+            font-weight: 400;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .daily-commute-panel, .occasional-trip-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .hidden { display: none !important; }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: 1.2px;
+            margin-bottom: 10px;
+            padding-left: 2px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .section-title i { color: var(--primary); font-size: 12px; }
+
+        .route-picker {
+            display: flex;
+            gap: 8px;
+            padding: 0 0 12px 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .route-picker::-webkit-scrollbar { display: none; }
+        .route-chip {
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--muted);
+            font-size: 9px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            font-family: inherit;
+            transition: 0.2s;
+        }
+        .route-chip.active {
+            background: rgba(139, 124, 255,0.12);
+            border-color: rgba(139, 124, 255,0.3);
+            color: white;
+        }
+
+        .primary-btn {
+            width: 100%;
+            border: 0;
+            padding: 12px;
+            border-radius: 10px;
+            background: linear-gradient(100deg, #5b3df0, #8b7cff);
+            color: #ffffff;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(91, 61, 240, 0.18);
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .primary-btn:hover { transform: translateY(-1px); }
+        .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .card-top {
+            padding: 16px 16px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-top h3 { font-size: 16px; letter-spacing: -0.4px; }
+        .map-controls { display: flex; gap: 4px; }
+        .map-controls button {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.04);
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            display: grid;
+            place-items: center;
+        }
+
+        #liveMap {
+            height: 300px;
+            margin: 0 10px;
+            border-radius: 16px;
+            overflow: hidden;
+            z-index: 4;
+            background: #0b111c;
+        }
+
+        .leaflet-container {
+            background: #0b111c !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+        .leaflet-tile-pane {
+            filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+        }
+        .leaflet-control-attribution {
+            background: rgba(7,10,18,0.75) !important;
+            color: #8d96a9 !important;
+            font-size: 8px !important;
+        }
+        .leaflet-control-attribution a { color: #8b7cff !important; }
+        .leaflet-bar {
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4) !important;
+        }
+        .leaflet-bar a {
+            background: rgba(15,22,35,0.95) !important;
+            color: #f5f7fb !important;
+            border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+        }
+        .leaflet-bar a:hover {
+            background: rgba(139, 124, 255,0.15) !important;
+            color: #8b7cff !important;
+        }
+        .bus-div-icon {
+            background: transparent !important;
+            border: 0 !important;
+        }
+
+        .map-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+        }
+        .small-label {
+            display: block;
+            color: var(--muted);
+            font-size: 7px;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .map-footer strong { font-size: 9px; }
+        .progress-container { width: 48%; }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            font-size: 7px;
+            margin-bottom: 5px;
+        }
+        .progress-label strong { color: var(--primary); font-size: 7px; }
+        .progress {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress div {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #5b3df0, #8b7cff);
+            border-radius: inherit;
+            transition: width 0.8s ease;
+        }
+
+        .card-heading {
+            padding: 16px 16px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-heading h3 { font-size: 16px; letter-spacing: -0.4px; }
+        .eyebrow {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+        .small-btn {
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.035);
+            color: var(--muted);
+            border-radius: 9px;
+            padding: 7px 9px;
+            font-family: inherit;
+            font-size: 8px;
+            cursor: pointer;
+        }
+        .small-btn.favorite {
+            color: var(--yellow);
+            border-color: rgba(251, 191, 36, 0.3);
+        }
+
+        .bus-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 0 10px 10px;
+        }
+        .bus-option {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border: 1px solid transparent;
+            background: rgba(255,255,255,0.02);
+            color: white;
+            border-radius: 14px;
+            cursor: pointer;
+            text-align: left;
+            transition: 0.2s;
+            font-family: inherit;
+        }
+        .bus-option.active {
+            background: rgba(139, 124, 255, 0.08);
+            border-color: rgba(139, 124, 255, 0.15);
+        }
+        .bus-number {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.055);
+            color: var(--primary);
+            font-size: 11px;
+            font-weight: 800;
+        }
+        .bus-info { flex: 1; }
+        .bus-info strong { display: block; font-size: 10px; }
+        .bus-info span {
+            display: block;
+            color: var(--muted);
+            font-size: 8px;
+            margin-top: 3px;
+        }
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+        .status-dot.green { background: var(--green); box-shadow: 0 0 10px rgba(52, 211, 153, 0.5); }
+        .status-dot.yellow { background: var(--yellow); box-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
+
+        .eta-card { padding: 16px; }
+        .eta-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .eta-header h3 { font-size: 16px; }
+        .eta-circle {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(139, 124, 255, 0.25);
+            background: radial-gradient(circle, rgba(139, 124, 255,0.13), rgba(139, 124, 255,0.02));
+        }
+        .eta-circle strong { color: var(--primary); font-size: 19px; line-height: 18px; }
+        .eta-circle span { color: var(--muted); font-size: 6px; margin-top: 3px; }
+        .eta-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-top: 18px;
+        }
+        .eta-details div {
+            padding: 8px;
+            background: rgba(255,255,255,0.025);
+            border-radius: 9px;
+        }
+        .eta-details span {
+            display: block;
+            color: var(--muted);
+            font-size: 7px;
+            margin-bottom: 4px;
+        }
+        .eta-details strong { font-size: 9px; }
+        .status-text { color: var(--green); }
+        .eta-message {
+            margin-top: 10px;
+            padding: 9px;
+            border-radius: 9px;
+            background: rgba(52, 211, 153, 0.05);
+            border: 1px solid rgba(52, 211, 153, 0.08);
+            color: #a7b4c8;
+            font-size: 8px;
+        }
+
+        .smart-card { padding: 16px; }
+        .smart-title { display: flex; align-items: center; gap: 10px; }
+        .smart-icon {
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: rgba(139, 124, 255,0.09);
+            font-size: 14px;
+        }
+        .smart-title h3 { font-size: 13px; }
+        .smart-description {
+            color: var(--muted);
+            font-size: 9px;
+            line-height: 1.6;
+            margin: 11px 0;
+        }
+        .saved-stop {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            margin-bottom: 11px;
+        }
+        .stop-icon {
+            width: 30px;
+            height: 30px;
+            display: grid;
+            place-items: center;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.04);
+        }
+        .saved-stop > div:nth-child(2) { flex: 1; }
+        .saved-stop strong { display: block; font-size: 9px; }
+        .saved-stop span {
+            display: block;
+            color: var(--muted);
+            font-size: 7px;
+            margin-top: 3px;
+        }
+        .alert-status {
+            color: var(--red);
+            font-size: 7px;
+            font-weight: 800;
+            padding: 5px 7px;
+            border-radius: 6px;
+            background: rgba(251, 113, 133,0.08);
+        }
+        .alert-status.on {
+            color: var(--green);
+            background: rgba(52, 211, 153,0.08);
+        }
+
+        .result-bus {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: rgba(139, 124, 255,0.05);
+            border: 1px solid rgba(139, 124, 255,0.12);
+            border-radius: 13px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .result-bus:hover { background: rgba(139, 124, 255,0.1); }
+        .result-bus .bus-num {
+            font-weight: 800;
+            color: var(--primary);
+            font-size: 13px;
+        }
+        .result-bus .bus-route {
+            font-size: 9px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+        .result-bus .bus-eta {
+            font-weight: 800;
+            font-size: 14px;
+            color: var(--green);
+            text-align: right;
+        }
+        .result-bus .bus-eta small {
+            font-size: 7px;
+            font-weight: 400;
+            color: var(--muted);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .destination-input {
+            display: flex;
+            gap: 8px;
+            padding: 0 0 10px 0;
+        }
+        .destination-input input {
+            flex: 1;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: white;
+            font-family: inherit;
+            font-size: 11px;
+            outline: none;
+        }
+        .destination-input input:focus { border-color: rgba(139, 124, 255,0.45); }
+        .destination-input button {
+            padding: 12px 18px;
+            border-radius: 12px;
+            border: 0;
+            background: linear-gradient(100deg, #5b3df0, #8b7cff);
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .trip-info-card { padding: 16px; }
+        .trip-route {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .trip-route .route-point {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+        }
+        .trip-route .route-point strong { font-size: 11px; }
+        .trip-route .route-point span { font-size: 8px; color: var(--muted); }
+        .trip-arrow { color: var(--primary); font-size: 12px; }
+        .bus-status-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .bus-status-row:last-of-type { border-bottom: 0; }
+        .bus-status-row span { font-size: 8px; color: var(--muted); }
+        .bus-status-row strong { font-size: 10px; }
+
+        .mobile-nav {
+            position: fixed;
+            display: flex;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            height: 60px;
+            border-radius: 18px;
+            background: rgba(13,18,30,0.94);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            z-index: 300;
+            padding: 6px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+            max-width: 410px;
+            margin: 0 auto;
+        }
+        .mobile-nav-item {
+            flex: 1;
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 7px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+        }
+        .mobile-nav-item i { font-size: 15px; }
+        .mobile-nav-item.active {
+            background: rgba(139, 124, 255,0.09);
+            color: var(--primary);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 500;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            width: min(420px, 100%);
+            max-height: 92vh;
+            overflow-y: auto;
+            background: linear-gradient(145deg, #141b2b, #0c111d);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 22px 18px;
+            position: relative;
+            box-shadow: 0 30px 100px rgba(0,0,0,0.65);
+            animation: modalIn 0.25s ease;
+        }
+        .modal::-webkit-scrollbar { width: 3px; }
+        .modal::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.96) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 30px;
+            height: 30px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: white;
+            cursor: pointer;
+            font-size: 17px;
+            display: grid;
+            place-items: center;
+            z-index: 10;
+        }
+        .modal h2 {
+            font-size: 20px;
+            letter-spacing: -0.6px;
+            margin-bottom: 6px;
+        }
+        .modal-description {
+            color: var(--muted);
+            font-size: 9px;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        .modal-map {
+            height: 280px;
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            position: relative;
+            background: #0b111c;
+            border: 1px solid var(--border);
+        }
+
+        .map-instruction {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            padding: 10px 12px;
+            background: rgba(7,10,18,0.92);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 124, 255,0.25);
+            border-radius: 10px;
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: none;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        }
+        .map-instruction i { color: var(--primary); font-size: 12px; }
+
+        .selected-place-card {
+            padding: 10px 12px;
+            background: rgba(139, 124, 255,0.06);
+            border: 1px solid rgba(139, 124, 255,0.15);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-size: 10px;
+            display: none;
+        }
+        .selected-place-card.show { display: block; }
+        .selected-place-card strong {
+            display: block;
+            color: var(--primary);
+            font-size: 9px;
+            margin-bottom: 3px;
+            letter-spacing: 1px;
+        }
+        .selected-place-card span {
+            display: block;
+            color: #dbe2ed;
+            font-size: 10px;
+            line-height: 1.4;
+        }
+        .selected-place-card small {
+            display: block;
+            color: var(--muted);
+            font-size: 8px;
+            margin-top: 4px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .modal-actions button { flex: 1; }
+        .btn-secondary {
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: var(--text);
+            padding: 12px;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.08); }
+
+        .gps-float-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b7cff, #5b3df0);
+            border: 2px solid white;
+            color: white;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            font-size: 16px;
+            z-index: 500;
+            box-shadow: 0 8px 25px rgba(91, 61, 240, 0.55);
+        }
+        .gps-float-btn:disabled { opacity: 0.6; cursor: wait; }
+
+        .inline-input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: white;
+            font-family: inherit;
+            font-size: 11px;
+            outline: none;
+            margin-bottom: 10px;
+        }
+        .inline-input:focus { border-color: rgba(139, 124, 255,0.45); }
+
+        .modal label {
+            display: block;
+            color: #c8d0dc;
+            font-size: 8px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .modal select {
+            display: block;
+            width: 100%;
+            margin-top: 5px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: white;
+            outline: none;
+            font-family: inherit;
+            font-size: 10px;
+        }
+        .modal select option { background: #111827; }
+
+        .modal-info {
+            padding: 10px;
+            background: rgba(251, 191, 36,0.05);
+            border: 1px solid rgba(251, 191, 36,0.08);
+            border-radius: 10px;
+            color: #aeb8c7;
+            font-size: 8px;
+            margin: 4px 0 12px;
+        }
+
+        .picker-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            padding: 4px;
+            background: rgba(255,255,255,0.025);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .picker-tab {
+            flex: 1;
+            padding: 9px 8px;
+            border-radius: 9px;
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            font-family: inherit;
+            font-size: 9px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .picker-tab i { font-size: 11px; }
+        .picker-tab.active {
+            background: rgba(139, 124, 255,0.12);
+            color: var(--primary);
+            box-shadow: 0 2px 8px rgba(139, 124, 255,0.15);
+        }
+
+        .picker-pane { display: none; }
+        .picker-pane.active {
+            display: block;
+            animation: paneIn 0.2s ease;
+        }
+        @keyframes paneIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .search-wrap { padding: 2px 0; }
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            transition: 0.2s;
+        }
+        .search-input-row:focus-within {
+            border-color: rgba(139, 124, 255,0.45);
+            box-shadow: 0 0 0 3px rgba(139, 124, 255,0.06);
+        }
+        .search-icon { color: var(--muted); font-size: 12px; }
+        .search-input {
+            flex: 1;
+            border: 0 !important;
+            background: transparent !important;
+            padding: 12px 0 !important;
+            margin: 0 !important;
+            color: white;
+            font-family: inherit;
+            font-size: 11px;
+            outline: none;
+        }
+        .search-input::placeholder { color: var(--muted); }
+        .search-clear {
+            background: transparent;
+            border: 0;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 6px;
+            font-size: 11px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .search-clear:hover { color: white; background: rgba(255,255,255,0.06); }
+
+        .search-target-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+            font-size: 9px;
+            color: var(--muted);
+            padding: 0 4px;
+        }
+        .target-btn {
+            padding: 5px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--muted);
+            font-family: inherit;
+            font-size: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .target-btn.active[data-target="from"] {
+            background: rgba(52, 211, 153,0.12);
+            border-color: rgba(52, 211, 153,0.3);
+            color: var(--green);
+        }
+        .target-btn.active[data-target="to"] {
+            background: rgba(251, 113, 133,0.12);
+            border-color: rgba(251, 113, 133,0.3);
+            color: var(--red);
+        }
+
+        .search-results {
+            max-height: 220px;
+            overflow-y: auto;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(0,0,0,0.2);
+            padding: 4px;
+        }
+        .search-results::-webkit-scrollbar { width: 4px; }
+        .search-results::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+        .search-hint, .search-empty {
+            padding: 20px 12px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .search-hint i { font-size: 12px; }
+
+        .search-result-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.15s;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .search-result-item:last-child { border-bottom: 0; }
+        .search-result-item:hover { background: rgba(139, 124, 255,0.08); }
+        .search-result-item .result-icon {
+            color: var(--primary);
+            font-size: 12px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+        .search-result-item .result-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .search-result-item .result-name {
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 3px;
+        }
+        .search-result-item .result-detail {
+            color: var(--muted);
+            font-size: 8px;
+            line-height: 1.3;
+        }
+
+        .manual-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .manual-box {
+            padding: 12px;
+            background: rgba(255,255,255,0.025);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .manual-box.green {
+            background: rgba(52, 211, 153,0.05);
+            border-color: rgba(52, 211, 153,0.15);
+        }
+        .manual-box.red {
+            background: rgba(251, 113, 133,0.05);
+            border-color: rgba(251, 113, 133,0.15);
+        }
+        .manual-box > strong {
+            display: block;
+            font-size: 9px;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+        .manual-box.green > strong { color: var(--green); }
+        .manual-box.red > strong { color: var(--red); }
+
+        .input-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .input-row-2 .inline-input { margin-bottom: 0; }
+
+        .toast-container {
+            position: fixed;
+            left: 12px;
+            right: 12px;
+            bottom: 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 1000;
+            max-width: 410px;
+            margin: 0 auto;
+            pointer-events: none;
+        }
+        .toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px;
+            background: rgba(15,22,35,0.96);
+            border: 1px solid rgba(139, 124, 255,0.18);
+            border-radius: 13px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.45);
+            animation: toastIn 0.3s ease;
+            pointer-events: auto;
+        }
+        .toast-icon { font-size: 16px; }
+        .toast strong { display: block; font-size: 10px; }
+        .toast span {
+            display: block;
+            color: var(--muted);
+            font-size: 8px;
+            line-height: 1.5;
+            margin-top: 3px;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ============ SAVED TAB PAGE ============ */
+        .tab-page {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 400;
+            overflow-y: auto;
+            padding: 20px 14px 90px 14px;
+            display: none;
+        }
+        .tab-page.show { display: block; animation: paneIn 0.25s ease; }
+        .tab-page-inner {
+            max-width: 430px;
+            margin: 0 auto;
+        }
+        .tab-page-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 0 18px 0;
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            z-index: 5;
+        }
+        .tab-page-back {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: white;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .tab-page-header h2 {
+            font-size: 20px;
+            letter-spacing: -0.6px;
+        }
+        .tab-page-header .sub {
+            font-size: 9px;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        .saved-section {
+            margin-bottom: 16px;
+        }
+        .saved-section-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: 1.5px;
+            margin-bottom: 8px;
+            padding-left: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .saved-section-title i { color: var(--primary); font-size: 11px; }
+
+        .saved-card {
+            padding: 14px;
+            background: linear-gradient(145deg, rgba(19, 25, 40, 0.82), rgba(11, 15, 26, 0.76));
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .saved-card .icon-box {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .saved-card .icon-box.green {
+            background: rgba(52, 211, 153,0.12);
+            color: var(--green);
+        }
+        .saved-card .icon-box.blue {
+            background: rgba(139, 124, 255,0.12);
+            color: var(--primary);
+        }
+        .saved-card .icon-box.yellow {
+            background: rgba(251, 191, 36,0.12);
+            color: var(--yellow);
+        }
+        .saved-card .icon-box.red {
+            background: rgba(251, 113, 133,0.12);
+            color: var(--red);
+        }
+        .saved-card .content {
+            flex: 1;
+            min-width: 0;
+        }
+        .saved-card .content strong {
+            display: block;
+            font-size: 11px;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .saved-card .content span {
+            display: block;
+            color: var(--muted);
+            font-size: 8px;
+            line-height: 1.4;
+        }
+        .saved-card .action-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--muted);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        .saved-card .action-btn:hover {
+            background: rgba(251, 113, 133,0.12);
+            color: var(--red);
+            border-color: rgba(251, 113, 133,0.3);
+        }
+
+        .empty-saved {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--muted);
+            font-size: 10px;
+            line-height: 1.6;
+        }
+        .empty-saved i {
+            display: block;
+            font-size: 32px;
+            color: rgba(255,255,255,0.1);
+            margin-bottom: 10px;
+        }
+
+        /* ============ ALERTS TAB PAGE ============ */
+        .alert-filters {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+            overflow-x: auto;
+            padding: 0 2px;
+            scrollbar-width: none;
+        }
+        .alert-filters::-webkit-scrollbar { display: none; }
+        .alert-filter {
+            padding: 7px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--muted);
+            font-family: inherit;
+            font-size: 9px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .alert-filter.active {
+            background: rgba(139, 124, 255,0.12);
+            border-color: rgba(139, 124, 255,0.3);
+            color: white;
+        }
+
+        .alert-item {
+            padding: 12px;
+            background: linear-gradient(145deg, rgba(19, 25, 40, 0.82), rgba(11, 15, 26, 0.76));
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .alert-item .alert-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+        .alert-item .alert-dot.info { background: var(--primary); }
+        .alert-item .alert-dot.success { background: var(--green); box-shadow: 0 0 8px rgba(52, 211, 153,0.5); }
+        .alert-item .alert-dot.warn { background: var(--yellow); box-shadow: 0 0 8px rgba(251, 191, 36,0.5); }
+        .alert-item .alert-dot.danger { background: var(--red); box-shadow: 0 0 8px rgba(251, 113, 133,0.5); }
+
+        .alert-item .alert-content {
+            flex: 1;
+        }
+        .alert-item .alert-content strong {
+            display: block;
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+        .alert-item .alert-content span {
+            display: block;
+            color: var(--muted);
+            font-size: 9px;
+            line-height: 1.5;
+        }
+        .alert-item .alert-time {
+            font-size: 7px;
+            color: var(--muted);
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ============ APP CREDITS ============ */
+        .app-credits {
+            margin-top: 22px;
+            padding: 22px 16px 10px;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+        .app-credits-links {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .credit-link {
+            width: 42px;
+            height: 42px;
+            border-radius: 13px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.035);
+            color: var(--text);
+            display: grid;
+            place-items: center;
+            font-size: 17px;
+            text-decoration: none;
+            transition: 0.2s;
+        }
+        .credit-link:hover {
+            background: var(--grad-brand);
+            border-color: transparent;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(91, 61, 240, 0.35);
+        }
+        .credit-link.instagram:hover {
+            background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af, #515bd4);
+            box-shadow: 0 10px 25px rgba(221, 42, 123, 0.35);
+        }
+        .app-credits p {
+            font-size: 10px;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+        .app-credits p strong {
+            color: var(--text);
+            font-weight: 700;
+        }
+        .app-credits span {
+            display: block;
+            font-size: 8px;
+            color: var(--muted);
+            opacity: 0.7;
+        }
+
+        @media (min-width: 431px) {
+            body { padding-top: 20px; }
+            .app { padding: 0 20px 90px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow glow-one"></div>
+    <div class="bg-glow glow-two"></div>
+
+    <div class="app">
+        <header class="topbar">
+            <div class="topbar-left">
+                <p class="eyebrow">SMART TRANSPORT</p>
+                <h2 id="greetingText">Good evening 👋</h2>
+            </div>
+            <div class="header-actions">
+                <div class="system-status">
+                    <span class="live-dot"></span> LIVE
+                </div>
+                <button class="icon-btn hidden" id="installBtn" title="Install app">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button class="icon-btn" id="notificationBtn">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge" id="notificationBadge">0</span>
+                </button>
+                <div class="avatar">D</div>
+            </div>
+        </header>
+
+        <div class="notification-panel" id="notificationPanel">
+            <div class="panel-header">
+                <div>
+                    <strong>Notifications</strong>
+                    <span>Smart travel updates</span>
+                </div>
+                <button id="clearNotifications">Clear</button>
+            </div>
+            <div id="notificationList">
+                <div class="empty-notification">No new notifications</div>
+            </div>
+        </div>
+
+        <div class="user-selector">
+            <button class="user-type-btn active" id="dailyUserBtn">
+                <i class="fas fa-calendar-check"></i>
+                Daily Commuter
+                <span class="sub">Fixed route</span>
+            </button>
+            <button class="user-type-btn" id="occasionalUserBtn">
+                <i class="fas fa-map-pin"></i>
+                Occasional Rider
+                <span class="sub">Pick destination</span>
+            </button>
+        </div>
+
+        <div class="daily-commute-panel" id="dailyPanel">
+            <div class="card" id="routeSetupCard" style="padding: 16px;">
+                <div class="section-title">
+                    <i class="fas fa-route"></i> MY DAILY ROUTE
+                </div>
+                <div class="route-picker" id="routePicker">
+                    <button class="route-chip active" data-route="city-college">City → College</button>
+                    <button class="route-chip" data-route="station-campus">Station → Campus</button>
+                    <button class="route-chip" data-route="market-college">Market → College</button>
+                    <button class="route-chip" data-route="home-city">Home → City</button>
+                </div>
+                <button class="primary-btn" id="setDailyRouteBtn" style="margin-top: 8px;">
+                    <i class="fas fa-map-marked-alt"></i> Open Map & Set Route
+                </button>
+                <div id="dailyRouteSummary" class="hidden" style="margin-top: 10px; padding: 10px;
+                            background: rgba(139, 124, 255,0.05); border-radius: 10px;
+                            border: 1px solid rgba(139, 124, 255,0.15); font-size: 10px;">
+                </div>
+            </div>
+
+            <div class="card hidden" id="dailyMapCard">
+                <div class="card-top">
+                    <div>
+                        <p class="eyebrow">LIVE MAP</p>
+                        <h3>Your Bus Network</h3>
+                    </div>
+                    <div class="map-controls">
+                        <button id="recenterMap"><i class="fas fa-location-crosshairs"></i></button>
+                    </div>
+                </div>
+                <div id="liveMap"></div>
+                <div class="map-footer">
+                    <div>
+                        <span class="small-label">LAST UPDATED</span>
+                        <strong id="lastUpdated">Just now</strong>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-label">
+                            <span>Route Progress</span>
+                            <strong id="routeProgressText">0%</strong>
+                        </div>
+                        <div class="progress">
+                            <div id="routeProgress"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card hidden" id="dailyBusListCard">
+                <div class="card-heading">
+                    <div>
+                        <p class="eyebrow">YOUR BUSES</p>
+                        <h3>Available on your route</h3>
+                    </div>
+                    <button class="small-btn" id="favoriteBusBtn">☆ Favorite</button>
+                </div>
+                <div class="bus-list" id="dailyBusList"></div>
+            </div>
+
+            <div class="card eta-card hidden" id="dailyEtaCard">
+                <div class="eta-header">
+                    <div>
+                        <p class="eyebrow">NEXT STOP</p>
+                        <h3 id="nextStop">--</h3>
+                    </div>
+                    <div class="eta-circle">
+                        <strong id="etaValue">--</strong>
+                        <span>MIN</span>
+                    </div>
+                </div>
+                <div class="eta-details">
+                    <div>
+                        <span>Bus</span>
+                        <strong id="selectedBus">--</strong>
+                    </div>
+                    <div>
+                        <span>Status</span>
+                        <strong class="status-text" id="statusText">--</strong>
+                    </div>
+                    <div>
+                        <span>Distance</span>
+                        <strong id="distanceValue">--</strong>
+                    </div>
+                </div>
+                <div class="eta-message" id="etaMessage">🚌 Waiting for bus data</div>
+            </div>
+
+            <div class="card smart-card hidden" id="dailySmartCard">
+                <div class="smart-title">
+                    <div class="smart-icon">🔔</div>
+                    <div>
+                        <p class="eyebrow">SMART STOP ALERT</p>
+                        <h3>Never miss your bus</h3>
+                    </div>
+                </div>
+                <p class="smart-description">
+                    Pick your stop on map, search, or enter coordinates. We'll alert you when your bus is close.
+                </p>
+                <div class="saved-stop">
+                    <div class="stop-icon">📍</div>
+                    <div>
+                        <strong id="savedStopName">No stop saved</strong>
+                        <span id="savedStopCoordinates">Tap to pick on map</span>
+                    </div>
+                    <div class="alert-status" id="alertStatus">OFF</div>
+                </div>
+                <button class="primary-btn" id="setupAlertBtn">
+                    <i class="fas fa-map-pin"></i> Pick My Stop
+                </button>
+            </div>
+        </div>
+
+        <div class="occasional-trip-panel hidden" id="occasionalPanel">
+            <div class="card" style="padding: 16px;">
+                <div class="section-title">
+                    <i class="fas fa-map-pin"></i> WHERE DO YOU WANT TO GO?
+                </div>
+                <div class="destination-input">
+                    <input type="text" id="destinationInput" placeholder="Tap button to pick on map" readonly>
+                    <button id="pickDestinationBtn">
+                        <i class="fas fa-map"></i> Pick
+                    </button>
+                </div>
+                <div class="route-picker" style="padding-top: 4px;">
+                    <button class="route-chip active" data-dest="College Gate">College Gate</button>
+                    <button class="route-chip" data-dest="Station">Station</button>
+                    <button class="route-chip" data-dest="City Center">City Center</button>
+                    <button class="route-chip" data-dest="Market">Market</button>
+                </div>
+            </div>
+
+            <div class="card hidden" id="occasionalResultCard" style="padding: 16px;">
+                <div class="section-title">
+                    <i class="fas fa-bus"></i> AVAILABLE BUSES
+                </div>
+                <div id="occasionalBusResults"></div>
+            </div>
+
+            <div class="card trip-info-card hidden" id="occasionalTripCard">
+                <div class="trip-route">
+                    <div class="route-point">
+                        <strong id="tripFrom">Your Location</strong>
+                        <span>Start</span>
+                    </div>
+                    <i class="fas fa-arrow-right trip-arrow"></i>
+                    <div class="route-point">
+                        <strong id="tripTo">Destination</strong>
+                        <span>End</span>
+                    </div>
+                </div>
+                <div class="bus-status-row">
+                    <span>Bus</span>
+                    <strong id="tripBusNumber">--</strong>
+                </div>
+                <div class="bus-status-row">
+                    <span>Status</span>
+                    <strong id="tripStatus" style="color: var(--green);">--</strong>
+                </div>
+                <div class="bus-status-row">
+                    <span>ETA</span>
+                    <strong id="tripEta">--</strong>
+                </div>
+                <div class="bus-status-row">
+                    <span>Distance</span>
+                    <strong id="tripDistance">--</strong>
+                </div>
+                <div class="eta-message" style="margin-top: 12px;" id="tripMessage">
+                    🚌 Select a bus to track
+                </div>
+                <div id="occInlineMap" style="height: 180px; margin-top: 12px;
+                            border-radius: 14px; overflow: hidden; display: none;"></div>
+            </div>
+        </div>
+
+        <div class="mobile-nav">
+            <button class="mobile-nav-item active" data-nav="home"><i class="fas fa-home"></i> Home</button>
+            <button class="mobile-nav-item" data-nav="buses"><i class="fas fa-bus"></i> Buses</button>
+            <button class="mobile-nav-item" data-nav="alerts"><i class="fas fa-bell"></i> Alerts</button>
+            <button class="mobile-nav-item" data-nav="saved"><i class="fas fa-star"></i> Saved</button>
+        </div>
+    </div>
+
+    <!-- ============ SAVED TAB PAGE ============ -->
+    <div class="tab-page" id="savedPage">
+        <div class="tab-page-inner">
+            <div class="tab-page-header">
+                <button class="tab-page-back" data-close-tab="savedPage"><i class="fas fa-arrow-left"></i></button>
+                <div>
+                    <h2>Saved Items</h2>
+                    <div class="sub">Your routes, stops & favorites</div>
+                </div>
+            </div>
+
+            <div class="saved-section">
+                <div class="saved-section-title">
+                    <i class="fas fa-route"></i> MY DAILY ROUTE
+                </div>
+                <div id="savedRouteList"></div>
+            </div>
+
+            <div class="saved-section">
+                <div class="saved-section-title">
+                    <i class="fas fa-map-pin"></i> MY STOP
+                </div>
+                <div id="savedStopList"></div>
+            </div>
+
+            <div class="saved-section">
+                <div class="saved-section-title">
+                    <i class="fas fa-star"></i> FAVORITE BUSES
+                </div>
+                <div id="savedFavoriteList"></div>
+            </div>
+
+            <div class="app-credits">
+                <div class="app-credits-links">
+                    <a href="https://github.com/durgexh11" target="_blank" rel="noopener noreferrer" class="credit-link" title="GitHub">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a href="https://www.instagram.com/not_durgesh49" target="_blank" rel="noopener noreferrer" class="credit-link instagram" title="Instagram">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                </div>
+                <p>Created by <strong>Durgesh Kapadnis</strong></p>
+                <span>© 2026 BusPulse. All rights reserved.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ ALERTS TAB PAGE ============ -->
+    <div class="tab-page" id="alertsPage">
+        <div class="tab-page-inner">
+            <div class="tab-page-header">
+                <button class="tab-page-back" data-close-tab="alertsPage"><i class="fas fa-arrow-left"></i></button>
+                <div>
+                    <h2>Alerts & Activity</h2>
+                    <div class="sub">All notifications and bus alerts</div>
+                </div>
+            </div>
+
+            <div class="alert-filters">
+                <button class="alert-filter active" data-filter="all">All</button>
+                <button class="alert-filter" data-filter="bus">Bus Approaching</button>
+                <button class="alert-filter" data-filter="route">Route Updates</button>
+                <button class="alert-filter" data-filter="stop">Stop Alerts</button>
+                <button class="alert-filter" data-filter="system">System</button>
+            </div>
+
+            <div id="alertsList"></div>
+        </div>
+    </div>
+
+    <!-- ============ ROUTE PICKER MODAL ============ -->
+    <div class="modal-overlay" id="routeModal">
+        <div class="modal">
+            <button class="modal-close" id="closeRouteModal">×</button>
+            <p class="eyebrow" id="routeModalEyebrow">SET ROUTE</p>
+            <h2 id="routeModalTitle">Set start & end points</h2>
+            <p class="modal-description" id="routeModalDesc">
+                <b>Step 1:</b> Set your <span style="color:var(--green);">START</span> point.
+            </p>
+
+            <div class="picker-tabs">
+                <button class="picker-tab active" data-mode="map" data-picker="route">
+                    <i class="fas fa-map"></i> Map
+                </button>
+                <button class="picker-tab" data-mode="search" data-picker="route">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                <button class="picker-tab" data-mode="manual" data-picker="route">
+                    <i class="fas fa-keyboard"></i> Manual
+                </button>
+            </div>
+
+            <div class="picker-pane active" id="routePaneMap">
+                <div class="modal-map" id="routeMapWrap">
+                    <div class="map-instruction" id="routeInstruction">
+                        <i class="fas fa-hand-pointer"></i>
+                        <span>Tap to set START point</span>
+                    </div>
+                    <div id="routeMap" style="width: 100%; height: 100%;"></div>
+                    <button class="gps-float-btn" id="routeGpsBtn" title="Use my location">
+                        <i class="fas fa-location-crosshairs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="picker-pane" id="routePaneSearch">
+                <div class="search-wrap">
+                    <div class="search-input-row">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="routeSearchInput" class="search-input"
+                               placeholder="Search place (e.g. College Road, Nashik)">
+                        <button class="search-clear" id="routeSearchClear">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="search-target-row">
+                        <span>Adding to:</span>
+                        <button class="target-btn active" data-target="from" id="searchTargetFrom">
+                            🟢 START
+                        </button>
+                        <button class="target-btn" data-target="to" id="searchTargetTo">
+                            🔴 DESTINATION
+                        </button>
+                    </div>
+                    <div class="search-results" id="routeSearchResults">
+                        <div class="search-hint">
+                            <i class="fas fa-info-circle"></i> Type at least 3 characters to search
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="picker-pane" id="routePaneManual">
+                <div class="manual-section">
+                    <div class="manual-box green">
+                        <strong>🟢 START</strong>
+                        <input type="text" id="manualFromName" class="inline-input" placeholder="Place name">
+                        <div class="input-row-2">
+                            <input type="number" step="any" id="manualFromLat" class="inline-input" placeholder="Latitude">
+                            <input type="number" step="any" id="manualFromLon" class="inline-input" placeholder="Longitude">
+                        </div>
+                    </div>
+                    <div class="manual-box red">
+                        <strong>🔴 DESTINATION</strong>
+                        <input type="text" id="manualToName" class="inline-input" placeholder="Place name">
+                        <div class="input-row-2">
+                            <input type="number" step="any" id="manualToLat" class="inline-input" placeholder="Latitude">
+                            <input type="number" step="any" id="manualToLon" class="inline-input" placeholder="Longitude">
+                        </div>
+                    </div>
+                    <button class="btn-secondary" id="manualApplyBtn" style="width: 100%;">
+                        <i class="fas fa-check"></i> Apply Coordinates
+                    </button>
+                </div>
+            </div>
+
+            <div class="selected-place-card" id="routeFromCard">
+                <strong>🟢 START</strong>
+                <span id="routeFromName">Not selected</span>
+                <small id="routeFromCoord">--</small>
+            </div>
+            <div class="selected-place-card" id="routeToCard">
+                <strong>🔴 DESTINATION</strong>
+                <span id="routeToName">Not selected</span>
+                <small id="routeToCoord">--</small>
+            </div>
+
+            <div class="modal-info" id="routeDistanceInfo">
+                💡 Route distance will appear once both points are set
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-secondary" id="routeResetBtn">
+                    <i class="fas fa-rotate-left"></i> Reset
+                </button>
+                <button class="primary-btn" id="routeConfirmBtn" disabled>
+                    <i class="fas fa-check"></i> Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ STOP PICKER MODAL ============ -->
+    <div class="modal-overlay" id="stopModal">
+        <div class="modal">
+            <button class="modal-close" id="closeStopModal">×</button>
+            <p class="eyebrow">SMART STOP ALERT</p>
+            <h2>Pick your stop</h2>
+            <p class="modal-description">
+                Choose on map, search, or enter coordinates manually.
+            </p>
+
+            <div class="picker-tabs">
+                <button class="picker-tab active" data-mode="map" data-picker="stop">
+                    <i class="fas fa-map"></i> Map
+                </button>
+                <button class="picker-tab" data-mode="search" data-picker="stop">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                <button class="picker-tab" data-mode="manual" data-picker="stop">
+                    <i class="fas fa-keyboard"></i> Manual
+                </button>
+            </div>
+
+            <div class="picker-pane active" id="stopPaneMap">
+                <div class="modal-map" id="stopMapWrap">
+                    <div class="map-instruction">
+                        <i class="fas fa-hand-pointer"></i>
+                        <span>Tap to pick your stop</span>
+                    </div>
+                    <div id="stopMap" style="width: 100%; height: 100%;"></div>
+                    <button class="gps-float-btn" id="stopGpsBtn" title="Use my location">
+                        <i class="fas fa-location-crosshairs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="picker-pane" id="stopPaneSearch">
+                <div class="search-wrap">
+                    <div class="search-input-row">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="stopSearchInput" class="search-input"
+                               placeholder="Search your stop (e.g. College Gate)">
+                        <button class="search-clear" id="stopSearchClear">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="search-results" id="stopSearchResults">
+                        <div class="search-hint">
+                            <i class="fas fa-info-circle"></i> Type at least 3 characters
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="picker-pane" id="stopPaneManual">
+                <div class="manual-section">
+                    <div class="manual-box">
+                        <strong>📍 YOUR STOP</strong>
+                        <input type="text" id="manualStopName" class="inline-input" placeholder="Stop name">
+                        <div class="input-row-2">
+                            <input type="number" step="any" id="manualStopLat" class="inline-input" placeholder="Latitude">
+                            <input type="number" step="any" id="manualStopLon" class="inline-input" placeholder="Longitude">
+                        </div>
+                    </div>
+                    <button class="btn-secondary" id="manualStopApplyBtn" style="width: 100%;">
+                        <i class="fas fa-check"></i> Apply Coordinates
+                    </button>
+                </div>
+            </div>
+
+            <div class="selected-place-card show" id="stopSelectedCard">
+                <strong>📍 YOUR STOP</strong>
+                <span id="stopSelectedName">Not selected</span>
+                <small id="stopSelectedCoord">--</small>
+            </div>
+
+            <label style="margin-top: 10px;">
+                Alert me when bus is within
+                <select id="alertDistanceInput">
+                    <option value="2">2 km</option>
+                    <option value="1" selected>1 km</option>
+                    <option value="0.5">500 meters</option>
+                    <option value="0.25">250 meters</option>
+                </select>
+            </label>
+
+            <button class="primary-btn modal-save" id="saveStopBtn" disabled>
+                <i class="fas fa-bell"></i> Save & Enable Alert
+            </button>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
