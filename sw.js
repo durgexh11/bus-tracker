@@ -1,9 +1,10 @@
-// BusPulse service worker — caches the app shell so the UI still opens offline.
+// My Bus 24/7 service worker — caches the app shell so the UI still opens offline.
 // Live map tiles, geolocation and route search still need a network connection.
 
-const CACHE_VERSION = "buspulse-v1";
+const CACHE_VERSION = "mybus247-v1";
 const APP_SHELL = [
   "./index.html",
+  "./style.css",
   "./script.js",
   "./manifest.json",
   "./icon-192.png",
