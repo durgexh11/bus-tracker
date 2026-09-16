@@ -1,6 +1,6 @@
 {
-  "name": "BusPulse — Smart Bus Tracking",
-  "short_name": "BusPulse",
+  "name": "My Bus 24/7 — Smart Bus Tracking",
+  "short_name": "My Bus 24/7",
   "description": "Real-time college bus tracking with live ETA, route alerts and saved stops.",
   "start_url": "./index.html",
   "scope": "./",
