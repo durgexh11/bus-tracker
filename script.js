@@ -1,5 +1,5 @@
 /* =========================================================
-   BUSPULSE — Smart Bus Tracking
+   MY BUS 24/7 — Smart Bus Tracking
    Full logic with Map + Search + Manual pickers,
    Current Location, Saved tab, and Alerts tab
    ========================================================= */
@@ -22,13 +22,13 @@ let selectedBus = "101";
 let selectedRoute = "city-college";
 let notificationCount = 0;
 let alertTriggered = false;
-let savedStop = JSON.parse(localStorage.getItem("busPulseStop")) || null;
-let dailyRouteCoords = JSON.parse(localStorage.getItem("busPulseDailyRoute")) || null;
-let occasionalRouteCoords = JSON.parse(localStorage.getItem("busPulseOccasionalRoute")) || null;
+let savedStop = JSON.parse(localStorage.getItem("myBus247Stop")) || null;
+let dailyRouteCoords = JSON.parse(localStorage.getItem("myBus247DailyRoute")) || null;
+let occasionalRouteCoords = JSON.parse(localStorage.getItem("myBus247OccasionalRoute")) || null;
 let routeSetupMode = "daily";
 
 // Alerts history (persisted)
-let alertHistory = JSON.parse(localStorage.getItem("busPulseAlertHistory")) || [];
+let alertHistory = JSON.parse(localStorage.getItem("myBus247AlertHistory")) || [];
 
 // Live map
 let liveMap = null;
@@ -881,7 +881,7 @@ routeConfirmBtn.addEventListener("click", () => {
 
     if (routeSetupMode === "daily") {
         dailyRouteCoords = data;
-        localStorage.setItem("busPulseDailyRoute", JSON.stringify(data));
+        localStorage.setItem("myBus247DailyRoute", JSON.stringify(data));
         showToast("✅", "Daily route saved", `${data.from.name} → ${data.to.name}`);
         addAlert("route", "Daily route saved", `${data.from.name} → ${data.to.name} • ${roadKm.toFixed(1)} km`);
         dailyRouteSummary.innerHTML = `✅ <b>${data.from.name}</b> → <b>${data.to.name}</b><br><small style="color:var(--muted)">${roadKm.toFixed(1)} km • saved</small>`;
@@ -890,7 +890,7 @@ routeConfirmBtn.addEventListener("click", () => {
         renderSavedPage();
     } else {
         occasionalRouteCoords = data;
-        localStorage.setItem("busPulseOccasionalRoute", JSON.stringify(data));
+        localStorage.setItem("myBus247OccasionalRoute", JSON.stringify(data));
         showToast("✅", "Trip route saved", `${data.from.name} → ${data.to.name}`);
         addAlert("route", "Trip route saved", `${data.from.name} → ${data.to.name}`);
         findBusesForRealRoute(data);
@@ -1026,7 +1026,7 @@ function checkSmartAlertReal(route) {
         addAlert("bus", "🚨 Bus approaching", msg);
         showToast("🔔", "Smart Stop Alert", msg);
         if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("BusPulse", { body: msg });
+            new Notification("My Bus 24/7", { body: msg });
         }
     }
     if (remainingKm > threshold + 0.5) alertTriggered = false;
@@ -1365,7 +1365,7 @@ saveStopBtn.addEventListener("click", () => {
         longitude: stopPickerPoint.lon.toFixed(6),
         alertDistance
     };
-    localStorage.setItem("busPulseStop", JSON.stringify(savedStop));
+    localStorage.setItem("myBus247Stop", JSON.stringify(savedStop));
     updateSavedStopUI();
     closeStopModalFn();
     if ("Notification" in window && Notification.permission === "default") {
@@ -1530,7 +1530,7 @@ function addAlert(type, title, message) {
     };
     alertHistory.unshift(alert);
     if (alertHistory.length > 100) alertHistory = alertHistory.slice(0, 100);
-    localStorage.setItem("busPulseAlertHistory", JSON.stringify(alertHistory));
+    localStorage.setItem("myBus247AlertHistory", JSON.stringify(alertHistory));
 
     // Also push to notification panel
     notificationCount++;
@@ -1609,7 +1609,7 @@ function renderSavedPage() {
         routeList.querySelector("[data-delete-route]").addEventListener("click", () => {
             if (confirm("Delete saved route?")) {
                 dailyRouteCoords = null;
-                localStorage.removeItem("busPulseDailyRoute");
+                localStorage.removeItem("myBus247DailyRoute");
                 renderSavedPage();
                 showDailyUI(false);
                 dailyRouteSummary.classList.add("hidden");
@@ -1643,7 +1643,7 @@ function renderSavedPage() {
         stopList.querySelector("[data-delete-stop]").addEventListener("click", () => {
             if (confirm("Delete saved stop?")) {
                 savedStop = null;
-                localStorage.removeItem("busPulseStop");
+                localStorage.removeItem("myBus247Stop");
                 updateSavedStopUI();
                 renderSavedPage();
                 showToast("🗑️", "Stop deleted", "Your stop was removed");
@@ -1840,7 +1840,7 @@ setInterval(() => {
     }
 }, 1500);
 
-console.log("🚌 BusPulse loaded — with Saved + Alerts tabs and Current Location");
+console.log("🚌 My Bus 24/7 loaded — with Saved + Alerts tabs and Current Location");
 /* =========================================================
    PWA: SERVICE WORKER + INSTALL PROMPT
    ========================================================= */
@@ -1867,7 +1867,7 @@ if (installBtn) {
         deferredInstallPrompt.prompt();
         const { outcome } = await deferredInstallPrompt.userChoice;
         if (outcome === "accepted") {
-            showToast("✅", "App installed", "BusPulse added to your home screen");
+            showToast("✅", "App installed", "My Bus 24/7 added to your home screen");
         }
         deferredInstallPrompt = null;
         installBtn.classList.add("hidden");
